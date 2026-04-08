@@ -2,5 +2,12 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "env": {
+    "DATABASE_URL": "@aumentta-database-url",
+    "OLLAMA_BASE_URL": "@ollama-base-url",
+    "OLLAMA_MODEL": "@ollama-model",
+    "NEXTAUTH_SECRET": "@nextauth-secret",
+    "NEXTAUTH_URL": "@nextauth-url"
+  }
 }
