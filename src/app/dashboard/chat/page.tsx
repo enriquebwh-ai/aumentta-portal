@@ -1,142 +1,179 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/layout/header";
-import { ChatWindow } from "@/components/chat/chat-window";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Send, Bot, User, Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
-import type { Message } from "@/types";
-import { Bot, User } from "lucide-react";
 
-const mockMessages: Message[] = [
-  {
-    id: "1",
-    chatId: "1",
-    senderId: "user1",
-    senderType: "USER",
-    content: "Hola! Quería consultar sobre el estado del proyecto E-commerce.",
-    createdAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-  },
-  {
-    id: "2",
-    chatId: "1",
-    senderId: "ai",
-    senderType: "AI",
-    content: "¡Hola! Soy el asistente IA de Aumentta. El proyecto E-commerce está actualmente al 68% de progreso. El equipo está trabajando en la integración del sistema de pagos. ¿Hay algo específico que quieras consultar?",
-    createdAt: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
-  },
-  {
-    id: "3",
-    chatId: "1",
-    senderId: "client",
-    senderType: "CLIENT",
-    content: "Perfecto. Una pregunta, ¿cuándo estará lista la pasarela de pago?",
-    createdAt: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
-  },
-  {
-    id: "4",
-    chatId: "1",
-    senderId: "ai",
-    senderType: "AI",
-    content: "Según el planning actual, la pasarela de pago estará lista para pruebas el próximo viernes. El equipo de desarrollo está finalizando los últimos detalles de la integración con Stripe.",
-    createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
-  },
-];
-
-const mockConversations = [
-  { id: "1", name: "Soporte General", lastMessage: "El equipo está trabajando en...", unread: 0, active: true },
-  { id: "2", name: "Proyecto E-commerce", lastMessage: "La pasarela estará lista...", unread: 2, active: false },
-  { id: "3", name: "App de Entregas", lastMessage: "El mockup está aprobado", unread: 0, active: false },
-];
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+}
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: "1",
+      role: "assistant",
+      content: "¡Hola! Soy el asistente IA de Aumentta. ¿En qué puedo ayudarte hoy? Puedo responder preguntas sobre tus proyectos, ayudarte con incidencias o simplemente conversar.",
+      timestamp: new Date(),
+    },
+  ]);
+  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const handleSend = async (message: string) => {
-    const newMessage: Message = {
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+
+    const userMessage: Message = {
       id: Date.now().toString(),
-      chatId: "1",
-      senderId: "client",
-      senderType: "CLIENT",
-      content: message,
-      createdAt: new Date().toISOString(),
+      role: "user",
+      content: input.trim(),
+      timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, newMessage]);
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
     setIsLoading(true);
 
-    setTimeout(() => {
-      const aiResponse: Message = {
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: input.trim() }),
+      });
+
+      const data = await response.json();
+
+      const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        chatId: "1",
-        senderId: "ai",
-        senderType: "AI",
-        content: `He recibido tu mensaje: "${message}". Estoy analizando la mejor respuesta para ti. Mientras tanto, ¿hay algo más en lo que pueda ayudarte?`,
-        createdAt: new Date().toISOString(),
+        role: "assistant",
+        content: data.response || "Lo siento, no pude generar una respuesta.",
+        timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, aiResponse]);
+
+      setMessages((prev) => [...prev, aiMessage]);
+    } catch (error) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "Lo siento, hubo un error al procesar tu mensaje. Asegúrate de que Ollama esté funcionando.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
-    <div className="min-h-screen">
-      <Header title="Chat" subtitle="Comunícate con tu equipo" />
+    <div className="min-h-screen flex flex-col">
+      <Header title="Chat con IA" subtitle="Asistente virtual de Aumentta" />
 
-      <div className="p-6">
-        <div className="flex gap-6 h-[calc(100vh-180px)]">
-          <Card className="w-80 shrink-0 hidden lg:block">
-            <CardContent className="p-4">
-              <h2 className="font-semibold text-gray-900 mb-4">Conversaciones</h2>
-              <div className="space-y-2">
-                {mockConversations.map((conv) => (
-                  <button
-                    key={conv.id}
-                    className={cn(
-                      "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-colors",
-                      conv.active ? "bg-primary/10 text-primary" : "hover:bg-gray-50"
-                    )}
-                  >
-                    <div className="rounded-full bg-gray-100 p-2">
-                      {conv.active ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{conv.name}</p>
-                      <p className="text-xs text-gray-500 truncate">{conv.lastMessage}</p>
-                    </div>
-                    {conv.unread > 0 && (
-                      <Badge variant="default" className="h-5 w-5 p-0 text-xs justify-center">
-                        {conv.unread}
+      <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full p-6">
+        <div className="flex items-center gap-2 mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <Sparkles className="h-5 w-5 text-blue-600" />
+          <p className="text-sm text-blue-700">
+            <strong>IA Activa:</strong> Conectada con Ollama (llama3.2). Puede responder preguntas, analizar incidencias y ayudarte con consultas técnicas.
+          </p>
+        </div>
+
+        <Card className="flex-1 flex flex-col">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={cn("flex gap-3", message.role === "user" && "flex-row-reverse")}
+              >
+                <Avatar className="h-8 w-8 shrink-0">
+                  <AvatarFallback className={message.role === "assistant" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}>
+                    {message.role === "assistant" ? <Bot className="h-4 w-4" /> : <User className="h-4 w-4" />}
+                  </AvatarFallback>
+                </Avatar>
+                <div className={cn("max-w-[80%]", message.role === "user" && "items-end")}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-medium text-gray-900">
+                      {message.role === "assistant" ? "Asistente IA" : "Tú"}
+                    </span>
+                    {message.role === "assistant" && (
+                      <Badge variant="default" className="text-xs h-5">
+                        <Sparkles className="h-3 w-3 mr-1" />
+                        IA
                       </Badge>
                     )}
-                  </button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="flex-1 flex flex-col min-h-0">
-            <div className="flex items-center gap-3 p-4 border-b border-gray-200">
-              <div className="rounded-full bg-primary/10 p-2">
-                <Bot className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-medium text-gray-900">Soporte General</h3>
-                <div className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-green-500" />
-                  <span className="text-xs text-gray-500">En línea</span>
+                  </div>
+                  <div
+                    className={cn(
+                      "rounded-2xl px-4 py-2 text-sm whitespace-pre-wrap",
+                      message.role === "assistant"
+                        ? "bg-gray-100 text-gray-900 rounded-bl-md"
+                        : "bg-primary text-white rounded-br-md"
+                    )}
+                  >
+                    {message.content}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {message.timestamp.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                  </p>
                 </div>
               </div>
-              <Badge variant="success" className="ml-auto">
-                IA Activa
-              </Badge>
-            </div>
+            ))}
+            {isLoading && (
+              <div className="flex gap-3">
+                <Avatar className="h-8 w-8 shrink-0">
+                  <AvatarFallback className="bg-blue-100 text-blue-700">
+                    <Bot className="h-4 w-4" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-3">
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Pensando...</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
 
-            <ChatWindow messages={messages} onSend={handleSend} isLoading={isLoading} />
-          </Card>
-        </div>
+          <CardContent className="p-4 border-t">
+            <form onSubmit={handleSubmit} className="flex gap-2">
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Escribe tu mensaje..."
+                className="min-h-[44px] max-h-[120px] resize-none"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSubmit(e);
+                  }
+                }}
+                disabled={isLoading}
+              />
+              <Button type="submit" size="icon" disabled={!input.trim() || isLoading}>
+                <Send className="h-4 w-4" />
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
