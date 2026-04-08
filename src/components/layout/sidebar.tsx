@@ -11,11 +11,13 @@ import {
   Settings,
   LogOut,
   Zap,
+  AlertCircle,
 } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/projects", icon: FolderKanban, label: "Proyectos" },
+  { href: "/incidents", icon: AlertCircle, label: "Incidencias" },
   { href: "/chat", icon: MessageSquare, label: "Chat" },
   { href: "/tasks", icon: CheckSquare, label: "Tareas" },
   { href: "/settings", icon: Settings, label: "Configuración" },
